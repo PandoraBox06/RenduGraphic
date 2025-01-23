@@ -65,8 +65,9 @@ int main()
     while (gl::window_is_open())
     {
         // Rendu à chaque frame
-        glClearColor(0.4f, 0.f, 0.68f, 1.f); // Choisis la couleur à utiliser. Les paramètres sont R, G, B, A avec des valeurs qui vont de 0 à 1
-        glClear(GL_COLOR_BUFFER_BIT);        // Exécute concrètement l'action d'appliquer sur tout l'écran la couleur choisie au-dessus
+        glClearColor(0.4f, 0.f, 0.68f, 1.f);                // Choisis la couleur à utiliser. Les paramètres sont R, G, B, A avec des valeurs qui vont de 0 à 1
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Vient remplacer glClear(GL_COLOR_BUFFER_BIT);
+        glEnable(GL_DEPTH_TEST);
         shader.bind();
         shader.set_uniform("aspect_ratio", gl::framebuffer_aspect_ratio());
         shader.set_uniform("time", gl::time_in_seconds());

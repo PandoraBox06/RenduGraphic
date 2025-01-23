@@ -8,5 +8,6 @@ uniform mat4 model_matrix;
 out vec3 vertex_position;
 void main()
 {
+    vertex_position = in_position;
     gl_Position = view_projection_matrix * model_matrix * vec4(in_position, 1.);
 }
