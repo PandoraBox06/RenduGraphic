@@ -185,7 +185,7 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
 
-        // ✅ Render Fullscreen Quad with Render Target Texture
+        // Render Fullscreen Quad with Render Target Texture
         quad_shader.bind();
         quad_shader.set_uniform("screen_texture", render_target.color_texture(0));
         fullscreen_quad.draw();
