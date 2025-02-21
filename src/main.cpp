@@ -26,6 +26,40 @@ int main()
         },
     });
 
+    auto render_target = gl::RenderTarget{gl::RenderTarget_Descriptor{
+        .width = gl::framebuffer_width_in_pixels(),
+        .height = gl::framebuffer_height_in_pixels(),
+        .color_textures = {
+            gl::ColorAttachment_Descriptor{
+                .format = gl::InternalFormat_Color::RGBA8,
+                .options = {
+                    .minification_filter = gl::Filter::NearestNeighbour,  // On va toujours afficher la texture à la taille de l'écran,
+                    .magnification_filter = gl::Filter::NearestNeighbour, // donc les filtres n'auront pas d'effet. Tant qu'à faire on choisit le moins coûteux.
+                    .wrap_x = gl::Wrap::ClampToEdge,
+                    .wrap_y = gl::Wrap::ClampToEdge,
+                },
+            },
+        },
+        .depth_stencil_texture = gl::DepthStencilAttachment_Descriptor{
+            .format = gl::InternalFormat_DepthStencil::Depth32F,
+            .options = {
+                .minification_filter = gl::Filter::NearestNeighbour,
+                .magnification_filter = gl::Filter::NearestNeighbour,
+                .wrap_x = gl::Wrap::ClampToEdge,
+                .wrap_y = gl::Wrap::ClampToEdge,
+            },
+        },
+    }};
+
+    gl::set_events_callbacks({
+        camera.events_callbacks(),
+        {.on_framebuffer_resized = [&](gl::FramebufferResizedEvent const &e)
+         {
+             if (e.width_in_pixels != 0 && e.height_in_pixels != 0) // OpenGL crash si on tente de faire une render target avec une taille de 0
+                 render_target.resize(e.width_in_pixels, e.height_in_pixels);
+         }},
+    });
+
     auto const texture = gl::Texture{
         gl::TextureSource::File{
             // Peut être un fichier, ou directement un tableau de pixels
@@ -41,22 +75,23 @@ int main()
             // .border_color = {0.4f, 0.f, 0.68f, 1.f},    // Couleur du bord si on lit en dehors de la texture et que le wrap mode est ClampToBorder.
         }};
 
-    auto const rectangle_mesh = gl::Mesh{{
+    auto const fullscreen_quad = gl::Mesh{{
         .vertex_buffers = {{
             .layout = {gl::VertexAttribute::Position2D{0}, gl::VertexAttribute::UV{1}},
             .data = {
                 // Position2D   |  UV Coordinates
-                -0.5f, -0.5f, 0.0f, 0.0f, // Bottom-left
-                +0.5f, -0.5f, 1.0f, 0.0f, // Bottom-right
-                +0.5f, +0.5f, 1.0f, 1.0f, // Top-right
-                -0.5f, +0.5f, 0.0f, 1.0f  // Top-left
+                -1.0f, -1.0f, 0.0f, 0.0f, // Bottom-left
+                +1.0f, -1.0f, 1.0f, 0.0f, // Bottom-right
+                +1.0f, +1.0f, 1.0f, 1.0f, // Top-right
+                -1.0f, +1.0f, 0.0f, 1.0f  // Top-left
             },
         }},
         .index_buffer = {
-            0, 1, 2, // First triangle (Bottom-left, Bottom-right, Top-right)
-            0, 2, 3  // Second triangle (Bottom-left, Top-right, Top-left)
+            0, 1, 2, // First triangle
+            0, 2, 3  // Second triangle
         },
     }};
+
     auto const cube_mesh = gl::Mesh{{
         .vertex_buffers = {{
             .layout = {gl::VertexAttribute::Position3D{0}, gl::VertexAttribute::UV{1}}, // Using Position3D and UV
@@ -118,24 +153,41 @@ int main()
                          20, 21, 22, 20, 22, 23},
     }};
 
+    auto const quad_shader = gl::Shader{{
+        .vertex = gl::ShaderSource::File{"res/quad_vertex.glsl"},
+        .fragment = gl::ShaderSource::File{"res/quad_fragment.glsl"},
+    }};
+
     while (gl::window_is_open())
     {
-        // Rendu à chaque frame
-        glClearColor(0.4f, 0.f, 0.68f, 1.f);                // Choisis la couleur à utiliser. Les paramètres sont R, G, B, A avec des valeurs qui vont de 0 à 1
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Vient remplacer glClear(GL_COLOR_BUFFER_BIT);
+        // ✅ Render Scene into Render Target
+        render_target.render([&]()
+                             {
+        glClearColor(0.4f, 0.f, 0.68f, 1.f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
+
         shader.bind();
         shader.set_uniform("aspect_ratio", gl::framebuffer_aspect_ratio());
         shader.set_uniform("time", gl::time_in_seconds());
-        glm::mat4 const projection_matrix = glm::infinitePerspective(1.f /*field of view in radians*/, gl::framebuffer_aspect_ratio() /*aspect ratio*/, 0.001f /*near plane*/);
-        glm::mat4 const view_matrix = camera.view_matrix();
+        
+        glm::mat4 projection_matrix = glm::infinitePerspective(1.f, gl::framebuffer_aspect_ratio(), 0.001f);
+        glm::mat4 view_matrix = camera.view_matrix();
         shader.set_uniform("view_projection_matrix", projection_matrix * view_matrix);
-        glm::mat4 const rotation = glm::rotate(glm::mat4{1.f}, gl::time_in_seconds() /*angle de la rotation*/, glm::vec3{0.f, 0.f, 1.f} /* axe autour duquel on tourne */);
-        glm::vec3{0.f, 0.f, 1.f} /* axe autour duquel on tourne */;
-        glm::mat4 const translation = glm::translate(glm::mat4{1.f}, glm::vec3{0.f, 1.f, 0.f} /* déplacement */);
-        // shader.set_uniform("model_matrix", rotation * translation);
+
+        glm::mat4 rotation = glm::rotate(glm::mat4{1.f}, gl::time_in_seconds(), glm::vec3{0.f, 0.f, 1.f});
+        glm::mat4 translation = glm::translate(glm::mat4{1.f}, glm::vec3{0.f, 1.f, 0.f});
         shader.set_uniform("model_matrix", translation * rotation);
+
         shader.set_uniform("my_texture", texture);
-        cube_mesh.draw();
+        cube_mesh.draw(); });
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glEnable(GL_DEPTH_TEST);
+
+        // ✅ Render Fullscreen Quad with Render Target Texture
+        quad_shader.bind();
+        quad_shader.set_uniform("screen_texture", render_target.color_texture(0));
+        fullscreen_quad.draw();
     }
 }
