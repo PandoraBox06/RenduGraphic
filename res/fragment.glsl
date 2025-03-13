@@ -1,16 +1,20 @@
 #version 410
 
 out vec4 out_color;
-
-in vec2 uv;              // UV coordinates received from vertex shader
-in vec3 vertex_position; // Position from vertex shader
-
-uniform sampler2D my_texture; // Texture sampler
+in vec3 position;
+in vec2 uv;
+in vec3 normal;
+uniform sampler2D my_texture;
+uniform vec3 light_direction;
+uniform vec3 point_light;
 
 void main()
 {
-    // Sample texture using UV coordinates
     vec4 texture_color = texture(my_texture, uv);
-    // If no texture, fallback to a debug color using UV mapping
-    out_color = texture_color;
+    float dir_light_intensity = dot(normalize(normal), light_direction);
+    vec3 dir_to_point_light = normalize(position - point_light);
+    float point_light_intensity = dot(normalize(normal), dir_to_point_light);
+    // produit_scalaire += 0.3;
+    out_color = vec4((dir_light_intensity + point_light_intensity + 0.3) * texture_color);
+    // out_color.rgb = position;
 }
