@@ -1,137 +1,98 @@
+#include "glm/ext/scalar_constants.hpp"
 #include "opengl-framework/opengl-framework.hpp"
-#include "glm/ext/matrix_transform.hpp"
-#include "glm/ext/matrix_clip_space.hpp"
-#include <iostream>
+#include "utils.hpp"
 
-auto load_mesh(std::filesystem::path const &path) -> gl::Mesh
+float easeInOut(float x, float power)
 {
-    auto reader = tinyobj::ObjReader{};
-    reader.ParseFromFile(gl::make_absolute_path(path).string(), {});
-
-    if (!reader.Error().empty())
-        throw std::runtime_error("Failed to read 3D model:\n" + reader.Error());
-    if (!reader.Warning().empty())
-        std::cout << "Warning while reading 3D model:\n" + reader.Warning();
-
-    auto vertices = std::vector<float>{};
-    auto indices = std::vector<uint32_t>{};
-
-    for (auto const &shape : reader.GetShapes())
+    if (x < 0.5)
     {
-        for (auto const &idx : shape.mesh.indices)
-        {
-            vertices.push_back(reader.GetAttrib().vertices[3 * idx.vertex_index + 0]);
-            vertices.push_back(reader.GetAttrib().vertices[3 * idx.vertex_index + 1]);
-            vertices.push_back(reader.GetAttrib().vertices[3 * idx.vertex_index + 2]);
+        return 0.5 * pow(2 * x, power);
+    }
+    else
+    {
+        return 1 - 0.5 * pow(2 * (1 - x), power);
+    }
+}
 
-            if (!reader.GetAttrib().texcoords.empty())
-            {
-                vertices.push_back(reader.GetAttrib().texcoords[2 * idx.texcoord_index + 0]);
-                vertices.push_back(reader.GetAttrib().texcoords[2 * idx.texcoord_index + 1]);
-            }
-            else
-            {
-                vertices.push_back(0.0f);
-                vertices.push_back(0.0f);
-            }
+struct Particle
+{
+    glm::vec2 position{
+        utils::rand(-gl::window_aspect_ratio(), +gl::window_aspect_ratio()),
+        utils::rand(-1.f, +1.f),
+    };
 
-            if (!reader.GetAttrib().normals.empty())
-            {
-                vertices.push_back(reader.GetAttrib().normals[3 * idx.normal_index + 0]);
-                vertices.push_back(reader.GetAttrib().normals[3 * idx.normal_index + 1]);
-                vertices.push_back(reader.GetAttrib().normals[3 * idx.normal_index + 2]);
-            }
-            else
-            {
-                vertices.push_back(0.0f);
-                vertices.push_back(0.0f);
-                vertices.push_back(1.0f);
-            }
+    glm::vec2 velocity;
 
-            indices.push_back(static_cast<uint32_t>(indices.size()));
-        }
+    float mass{utils::rand(1.f, 2.f)};
+
+    float age{0.f};
+    float lifespan{utils::rand(3.f, 5.f)};
+
+    glm::vec3 start_color{
+        utils::rand(0.f, 1.f),
+        utils::rand(0.f, 1.f),
+        utils::rand(0.f, 1.f),
+    };
+    glm::vec3 end_color{
+        utils::rand(0.f, 1.f),
+        utils::rand(0.f, 1.f),
+        utils::rand(0.f, 1.f),
+    };
+
+    glm::vec3 color() const
+    {
+        return glm::mix(start_color, end_color, easeInOut(relative_age(), 4.f));
     }
 
-    return gl::Mesh{{.vertex_buffers = {{
-                         .layout = {
-                             gl::VertexAttribute::Position3D{0},
-                             gl::VertexAttribute::UV{1},
-                             gl::VertexAttribute::Vec3{2}},
-                         .data = vertices,
-                     }},
-                     .index_buffer = indices}};
-}
+    float radius() const
+    {
+        return std::min(lifespan - age, 2.f) / 2.f * 0.03f;
+    }
+
+    float relative_age() const
+    {
+        return age / lifespan;
+    }
+
+    Particle()
+    {
+        float const initial_angle = utils::rand(0.f, 2.f * glm::pi<float>());
+
+        velocity = {
+            0.2f * std::cos(initial_angle),
+            0.2f * std::sin(initial_angle),
+        };
+    }
+};
 
 int main()
 {
-    gl::init("TPs de Rendering");
+    gl::init("Particles!");
     gl::maximize_window();
-    auto camera = gl::Camera{};
-    gl::set_events_callbacks({camera.events_callbacks()});
-
-    glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
-    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ONE);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
-    auto const model_mesh = load_mesh("res/fourareen.obj");
-    auto const shader = gl::Shader{{
-        .vertex = gl::ShaderSource::File{"res/vertex.glsl"},
-        .fragment = gl::ShaderSource::File{"res/fragment.glsl"},
-    }};
-
-    auto const texture = gl::Texture{
-        gl::TextureSource::File{
-            .path = "res/fourareen2K_albedo.jpg",
-            .flip_y = true,
-            .texture_format = gl::InternalFormat::RGBA8,
-        },
-        gl::TextureOptions{
-            .minification_filter = gl::Filter::Linear,
-            .magnification_filter = gl::Filter::Linear,
-            .wrap_x = gl::Wrap::Repeat,
-            .wrap_y = gl::Wrap::Repeat,
-        }};
+    std::vector<Particle> particles(100);
 
     while (gl::window_is_open())
     {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
-        shader.bind();
+        glClearColor(0.f, 0.f, 0.f, 1.f);
+        glClear(GL_COLOR_BUFFER_BIT);
 
-        float time_in_seconds = gl::time_in_seconds();
-        glm::mat4 const view_matrix = camera.view_matrix();
-        glm::mat4 const projection_matrix = glm::infinitePerspective(
-            glm::radians(45.f),
-            gl::framebuffer_aspect_ratio(),
-            0.001f);
-        glm::mat4 const view_projection_matrix = projection_matrix * view_matrix;
+        for (auto &particle : particles)
+        {
+            particle.age += gl::delta_time_in_seconds();
 
-        glm::mat4 const rotation = glm::rotate(
-            glm::mat4{1.f},
-            glm::radians(time_in_seconds * 45.f),
-            glm::vec3{1.f, 0.f, 0.f});
+            auto forces = glm::vec2{0.f};
+            forces += -particle.velocity * 1.f;
+            particle.velocity += forces / particle.mass * gl::delta_time_in_seconds();
+            particle.position += particle.velocity * gl::delta_time_in_seconds();
+        }
 
-        glm::mat4 const translation = glm::translate(
-            glm::mat4{1.0f},
-            glm::vec3{0.f, 0.f, 0.f});
+        std::erase_if(particles, [&](Particle const &particle)
+                      { return particle.age > particle.lifespan; });
 
-        glm::mat4 const model_matrix = translation * rotation;
-        glm::mat4 const normal_matrix = glm::transpose(glm::inverse(model_matrix));
-        glm::mat4 const model_view_projection_matrix = view_projection_matrix * model_matrix;
-
-        glm::vec3 light_direction_ws = glm::normalize(glm::vec3(0.2f, 0.3f, -1.0f));
-        glm::vec3 light_position_ws = glm::vec3(1.0f, 1.0f, 1.0f);
-        glm::vec3 light_color = glm::vec3(1.0f, 0.9f, 0.7f);
-
-        shader.set_uniform("model_view_projection_matrix", model_view_projection_matrix);
-        shader.set_uniform("model_matrix", model_matrix);
-        shader.set_uniform("normal_matrix", normal_matrix);
-        shader.set_uniform("light_direction_ws", light_direction_ws);
-        shader.set_uniform("light_position_ws", light_position_ws);
-        shader.set_uniform("texture_sampler", texture);
-        shader.set_uniform("light_color", light_color);
-
-        model_mesh.draw();
-        gl::framebuffer_aspect_ratio();
+        for (auto const &particle : particles)
+            utils::draw_disk(particle.position, particle.radius(), glm::vec4{particle.color(), 0.666f});
     }
 }
