@@ -8,6 +8,23 @@ float cross(glm::vec2 a, glm::vec2 b)
     return a.x * b.y - a.y * b.x;
 }
 
+/**
+ * Calculates the intersection point of two line segments AB and CD.
+ * Mathematical approach:
+ * 1. Parametric form of segments:
+ *    - AB = A + t*r where r = B-A and t ∈ [0,1]
+ *    - CD = C + u*s where s = D-C and u ∈ [0,1]
+ *
+ * 2. At intersection: A + t*r = C + u*s
+ *    Cross product with s: (A + t*r - C) × s = 0
+ *    t = ((C-A) × s)/(r × s)
+ *
+ * 3. Similarly for u:
+ *    u = ((C-A) × r)/(r × s)
+ *
+ * 4. Intersection exists if t,u ∈ [0,1] and (r × s) ≠ 0
+ */
+
 std::optional<glm::vec2> intersect_segments(glm::vec2 A, glm::vec2 B, glm::vec2 C, glm::vec2 D)
 {
     // Direction vectors of segments
@@ -17,7 +34,7 @@ std::optional<glm::vec2> intersect_segments(glm::vec2 A, glm::vec2 B, glm::vec2 
 
     // Cross products for intersection calculation
     float rxs = cross(r, s);
-    float qpxr = cross(diff, r);
+    float expr = cross(diff, r);
 
     // Check if segments are parallel or colinear
     if (rxs == 0.f)
