@@ -53,13 +53,13 @@ int main()
 
     // Create circle obstacles
     std::vector<CircleObstacle> circles;
-    for (int i = 0; i < 5; ++i)
+    for (int i = 0; i < 10; ++i)
     {
         glm::vec2 center{
             utils::rand(-gl::window_aspect_ratio(), +gl::window_aspect_ratio()),
             utils::rand(-1.f, +1.f),
         };
-        float radius = utils::rand(0.05f, 0.1f);
+        float radius = utils::rand(0.05f, 0.2f);
         circles.push_back({center, radius});
     }
 
