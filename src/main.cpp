@@ -1,98 +1,68 @@
 #include "glm/ext/scalar_constants.hpp"
 #include "opengl-framework/opengl-framework.hpp"
 #include "utils.hpp"
+#include <optional>
 
-float easeInOut(float x, float power)
+float cross(glm::vec2 a, glm::vec2 b)
 {
-    if (x < 0.5)
-    {
-        return 0.5 * pow(2 * x, power);
-    }
-    else
-    {
-        return 1 - 0.5 * pow(2 * (1 - x), power);
-    }
+    return a.x * b.y - a.y * b.x;
 }
 
-struct Particle
+std::optional<glm::vec2> intersect_segments(glm::vec2 A, glm::vec2 B, glm::vec2 C, glm::vec2 D)
 {
-    glm::vec2 position{
-        utils::rand(-gl::window_aspect_ratio(), +gl::window_aspect_ratio()),
-        utils::rand(-1.f, +1.f),
-    };
+    // Direction vectors of segments
+    glm::vec2 r = B - A;
+    glm::vec2 s = D - C;
+    glm::vec2 diff = C - A;
 
-    glm::vec2 velocity;
+    // Cross products for intersection calculation
+    float rxs = cross(r, s);
+    float qpxr = cross(diff, r);
 
-    float mass{utils::rand(1.f, 2.f)};
+    // Check if segments are parallel or colinear
+    if (rxs == 0.f)
+        return std::nullopt;
 
-    float age{0.f};
-    float lifespan{utils::rand(3.f, 5.f)};
+    // Calculate intersection parameters t and u
+    float t = cross(diff, s) / rxs;
+    float u = cross(diff, r) / rxs;
 
-    glm::vec3 start_color{
-        utils::rand(0.f, 1.f),
-        utils::rand(0.f, 1.f),
-        utils::rand(0.f, 1.f),
-    };
-    glm::vec3 end_color{
-        utils::rand(0.f, 1.f),
-        utils::rand(0.f, 1.f),
-        utils::rand(0.f, 1.f),
-    };
+    // Check if intersection point lies within both segments
+    if (t >= 0.f && t <= 1.f && u >= 0.f && u <= 1.f)
+        return A + t * r;
 
-    glm::vec3 color() const
-    {
-        return glm::mix(start_color, end_color, easeInOut(relative_age(), 4.f));
-    }
-
-    float radius() const
-    {
-        return std::min(lifespan - age, 2.f) / 2.f * 0.03f;
-    }
-
-    float relative_age() const
-    {
-        return age / lifespan;
-    }
-
-    Particle()
-    {
-        float const initial_angle = utils::rand(0.f, 2.f * glm::pi<float>());
-
-        velocity = {
-            0.2f * std::cos(initial_angle),
-            0.2f * std::sin(initial_angle),
-        };
-    }
-};
+    return std::nullopt;
+}
 
 int main()
 {
-    gl::init("Particles!");
+    gl::init("Segment-Segment Intersection");
     gl::maximize_window();
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-
-    std::vector<Particle> particles(100);
 
     while (gl::window_is_open())
     {
         glClearColor(0.f, 0.f, 0.f, 1.f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        for (auto &particle : particles)
+        // Fixed segment in center
+        glm::vec2 A = {-0.5f, 0.f};
+        glm::vec2 B = {0.5f, 0.f};
+
+        // Mouse-based segment
+        glm::vec2 mouse = gl::mouse_position();
+        glm::vec2 C = mouse - glm::vec2(0.3f, 0.2f);
+        glm::vec2 D = mouse + glm::vec2(0.3f, 0.2f);
+
+        // Draw segments
+        utils::draw_line(A, B, 0.01f, {1.f, 1.f, 1.f, 1.f}); // white
+        utils::draw_line(C, D, 0.01f, {0.f, 1.f, 1.f, 1.f}); // cyan
+
+        // Draw intersection if it exists
+        if (auto point = intersect_segments(A, B, C, D))
         {
-            particle.age += gl::delta_time_in_seconds();
-
-            auto forces = glm::vec2{0.f};
-            forces += -particle.velocity * 1.f;
-            particle.velocity += forces / particle.mass * gl::delta_time_in_seconds();
-            particle.position += particle.velocity * gl::delta_time_in_seconds();
+            utils::draw_disk(*point, 0.02f, {1.f, 1.f, 0.f, 1.f}); // yellow
         }
-
-        std::erase_if(particles, [&](Particle const &particle)
-                      { return particle.age > particle.lifespan; });
-
-        for (auto const &particle : particles)
-            utils::draw_disk(particle.position, particle.radius(), glm::vec4{particle.color(), 0.666f});
     }
 }
