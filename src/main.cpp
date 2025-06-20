@@ -51,35 +51,108 @@ std::optional<glm::vec2> intersect_segments(glm::vec2 A, glm::vec2 B, glm::vec2 
     return std::nullopt;
 }
 
+glm::vec2 reflect(glm::vec2 velocity, glm::vec2 normal)
+{
+    return velocity - 2.f * glm::dot(velocity, normal) * normal;
+}
+
+struct Particle
+{
+    glm::vec2 position{
+        utils::rand(-gl::window_aspect_ratio(), +gl::window_aspect_ratio()),
+        utils::rand(-1.f, +1.f),
+    };
+    glm::vec2 velocity;
+
+    glm::vec3 color{
+        utils::rand(0.f, 1.f),
+        utils::rand(0.f, 1.f),
+        utils::rand(0.f, 1.f),
+    };
+
+    Particle()
+    {
+        float angle = utils::rand(0.f, 2.f * glm::pi<float>());
+        velocity = 0.3f * glm::vec2(std::cos(angle), std::sin(angle));
+    }
+
+    float radius() const
+    {
+        return 0.015f;
+    }
+};
+
+struct Segment
+{
+    glm::vec2 A;
+    glm::vec2 B;
+
+    glm::vec2 normal() const
+    {
+        glm::vec2 dir = B - A;
+        glm::vec2 n = glm::normalize(glm::vec2(-dir.y, dir.x)); // Perpendicular
+        return n;
+    }
+};
+
 int main()
 {
-    gl::init("Segment-Segment Intersection");
+    gl::init("Particles Bounce on Segments");
     gl::maximize_window();
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
+    std::vector<Particle> particles;
+    for (int i = 0; i < 100; ++i)
+        particles.emplace_back();
+
+    std::vector<Segment> segments;
+    for (int i = 0; i < 5; ++i)
+    {
+        glm::vec2 A{
+            utils::rand(-gl::window_aspect_ratio(), +gl::window_aspect_ratio()),
+            utils::rand(-1.f, +1.f),
+        };
+        glm::vec2 B{
+            utils::rand(-gl::window_aspect_ratio(), +gl::window_aspect_ratio()),
+            utils::rand(-1.f, +1.f),
+        };
+        segments.push_back({A, B});
+    }
 
     while (gl::window_is_open())
     {
         glClearColor(0.f, 0.f, 0.f, 1.f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // Fixed segment in center
-        glm::vec2 A = {-0.5f, 0.f};
-        glm::vec2 B = {0.5f, 0.f};
-
-        // Mouse-based segment
-        glm::vec2 mouse = gl::mouse_position();
-        glm::vec2 C = mouse - glm::vec2(0.3f, 0.2f);
-        glm::vec2 D = mouse + glm::vec2(0.3f, 0.2f);
-
         // Draw segments
-        utils::draw_line(A, B, 0.01f, {1.f, 1.f, 1.f, 1.f}); // white
-        utils::draw_line(C, D, 0.01f, {0.f, 1.f, 1.f, 1.f}); // cyan
+        for (auto const &seg : segments)
+            utils::draw_line(seg.A, seg.B, 0.008f, {0.f, 1.f, 1.f, 1.f}); // Cyan
 
-        // Draw intersection if it exists
-        if (auto point = intersect_segments(A, B, C, D))
+        for (auto &particle : particles)
         {
-            utils::draw_disk(*point, 0.02f, {1.f, 1.f, 0.f, 1.f}); // yellow
+            glm::vec2 previous = particle.position;
+
+            // Apply air friction
+            glm::vec2 force = -particle.velocity * gl::delta_time_in_seconds();
+            particle.velocity += force * gl::delta_time_in_seconds();
+
+            glm::vec2 new_pos = particle.position + particle.velocity * gl::delta_time_in_seconds();
+
+            for (auto const &seg : segments)
+            {
+                if (auto hit = intersect_segments(previous, new_pos, seg.A, seg.B))
+                {
+                    // Reflect
+                    glm::vec2 n = seg.normal();
+                    particle.velocity = reflect(particle.velocity, -n);
+                    new_pos = *hit + particle.velocity * gl::delta_time_in_seconds();
+                }
+            }
+
+            particle.position = new_pos;
+
+            utils::draw_disk(particle.position, particle.radius(), glm::vec4(particle.color, 1.f));
         }
     }
 }
