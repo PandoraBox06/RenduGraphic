@@ -9,9 +9,7 @@ struct Particle
     glm::vec3 color;
 
     Particle(glm::vec2 pos)
-        : position(pos), color(1.f, 1.f, 1.f) // blanc pur
-    {
-    }
+        : position(pos), color(1.f, 1.f, 1.f) {}
 
     float radius() const { return 0.005f; }
 };
@@ -23,17 +21,17 @@ int main()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
-    // Rectangle : centré en (0.5, 0), largeur 0.5, hauteur 1.5
-    float rectCenterX = 0.5f;
-    float rectWidth = 0.5f;
-    float rectHeight = 1.5f;
+    glm::vec2 origin = {-0.2f, -0.5f};
+    glm::vec2 u = {0.8f, 0.2f};
+    glm::vec2 v = {0.2f, 0.8f};
 
     std::vector<Particle> particles;
     for (int i = 0; i < 1000; ++i)
     {
-        float x = utils::rand(rectCenterX - rectWidth / 2.f, rectCenterX + rectWidth / 2.f);
-        float y = utils::rand(-rectHeight / 2.f, rectHeight / 2.f);
-        particles.emplace_back(glm::vec2{x, y});
+        float a = utils::rand(0.f, 1.f);
+        float b = utils::rand(0.f, 1.f);
+        glm::vec2 pos = origin + a * u + b * v;
+        particles.emplace_back(pos);
     }
 
     while (gl::window_is_open())
