@@ -21,16 +21,15 @@ int main()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
-    glm::vec2 origin = {-0.2f, -0.5f};
-    glm::vec2 u = {0.8f, 0.2f};
-    glm::vec2 v = {0.2f, 0.8f};
+    glm::vec2 center{0.f, 0.f};
+    float radius = 1.f;
 
     std::vector<Particle> particles;
     for (int i = 0; i < 1000; ++i)
     {
-        float a = utils::rand(0.f, 1.f);
-        float b = utils::rand(0.f, 1.f);
-        glm::vec2 pos = origin + a * u + b * v;
+        float r = radius * std::sqrt(utils::rand(0.f, 1.f));
+        float theta = utils::rand(0.f, 2.f * glm::pi<float>());
+        glm::vec2 pos = center + r * glm::vec2(std::cos(theta), std::sin(theta));
         particles.emplace_back(pos);
     }
 
