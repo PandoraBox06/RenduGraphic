@@ -25,12 +25,16 @@ int main()
     float radius = 1.f;
 
     std::vector<Particle> particles;
-    for (int i = 0; i < 1000; ++i)
+    while (particles.size() < 3000)
     {
-        float r = radius * std::sqrt(utils::rand(0.f, 1.f));
-        float theta = utils::rand(0.f, 2.f * glm::pi<float>());
-        glm::vec2 pos = center + r * glm::vec2(std::cos(theta), std::sin(theta));
-        particles.emplace_back(pos);
+        float x = utils::rand(-radius, radius);
+        float y = utils::rand(-radius, radius);
+
+        if (x * x + y * y <= radius * radius)
+        {
+            glm::vec2 pos = center + glm::vec2{x, y};
+            particles.emplace_back(pos);
+        }
     }
 
     while (gl::window_is_open())
