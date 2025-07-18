@@ -153,4 +153,19 @@ void main()
         if (closed && points.size() > 2)
             draw_line(points.back(), points.front(), thickness, color);
     }
+
+    glm::vec2 de_casteljau(const std::vector<glm::vec2>& points, float t) {
+    std::vector<glm::vec2> temp = points;
+
+    while (temp.size() > 1) {
+        std::vector<glm::vec2> next;
+        for (size_t i = 0; i < temp.size() - 1; ++i) {
+            next.push_back((1 - t) * temp[i] + t * temp[i + 1]);
+        }
+        temp = next;
+    }
+
+    return temp[0];
+    }
+
 }
