@@ -3,8 +3,6 @@
 #include "utils.hpp"
 #include <vector>
 #include <cmath>
-#include <cstdlib>
-#include <ctime>
 
 // Points de contrôle fixes
 glm::vec2 P0 = {-0.8f, -0.6f};
@@ -37,15 +35,15 @@ std::vector<glm::vec2> compute_bezier_curve(glm::vec2 p0, glm::vec2 p1, glm::vec
     return curve;
 }
 
-// Particules réparties sur la courbe
-void spawn_particles_on_curve(
+// Particules régulièrement espacées
+void spawn_particles_on_curve_regular(
     std::vector<glm::vec2>& out_particles,
     glm::vec2 p0, glm::vec2 p1, glm::vec2 p2, glm::vec2 p3,
     int count)
 {
     for (int i = 0; i < count; ++i)
     {
-        float t = static_cast<float>(std::rand()) / RAND_MAX;
+        float t = static_cast<float>(i) / (count - 1); // [0, 1] inclus
         glm::vec2 pt = de_casteljau(p0, p1, p2, p3, t);
         out_particles.push_back(pt);
     }
@@ -53,13 +51,12 @@ void spawn_particles_on_curve(
 
 int main()
 {
-    gl::init("Particules sur Bézier Cubique (Fixe)");
+    gl::init("Particules espacées régulièrement");
     gl::maximize_window();
-    std::srand(static_cast<unsigned>(std::time(nullptr)));
 
     std::vector<glm::vec2> particles;
     std::vector<glm::vec2> curve = compute_bezier_curve(P0, P1, P2, P3, 100);
-    spawn_particles_on_curve(particles, P0, P1, P2, P3, 100);
+    spawn_particles_on_curve_regular(particles, P0, P1, P2, P3, 100);
 
     while (gl::window_is_open())
     {
@@ -80,7 +77,7 @@ int main()
         utils::draw_line(P1, P2, 0.002f, {1, 1, 1, 0.2f});
         utils::draw_line(P2, P3, 0.002f, {1, 1, 1, 0.2f});
 
-        // Particules
+        // Particules rouges
         for (auto& pt : particles)
         {
             utils::draw_disk(pt, 0.005f, {1.f, 0.f, 0.f, 0.8f});
