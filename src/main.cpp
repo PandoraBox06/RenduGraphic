@@ -3,20 +3,14 @@
 #include "utils.hpp"
 #include <vector>
 #include <cmath>
+#include <cstdlib>
+#include <ctime>
 
+// Points de contrôle fixes
 glm::vec2 P0 = {-0.8f, -0.6f};
-glm::vec2 P1 = {-0.2f,  0.8f};
+glm::vec2 P1 = {-0.4f,  0.8f};
+glm::vec2 P2 = { 0.4f,  0.8f};
 glm::vec2 P3 = { 0.8f, -0.6f};
-
-glm::vec2 get_mouse_ndc()
-{
-    glm::vec2 mouse = gl::mouse_position();
-    float aspect = gl::framebuffer_aspect_ratio();
-    return {
-        (mouse.x - 0.5f) * 2.f * aspect,
-        -(mouse.y - 0.5f) * 2.f
-    };
-}
 
 // De Casteljau cubique
 glm::vec2 de_casteljau(glm::vec2 p0, glm::vec2 p1, glm::vec2 p2, glm::vec2 p3, float t)
@@ -31,34 +25,51 @@ glm::vec2 de_casteljau(glm::vec2 p0, glm::vec2 p1, glm::vec2 p2, glm::vec2 p3, f
     return (1 - t) * d + t * e;
 }
 
+// Courbe complète
 std::vector<glm::vec2> compute_bezier_curve(glm::vec2 p0, glm::vec2 p1, glm::vec2 p2, glm::vec2 p3, int resolution = 64)
 {
     std::vector<glm::vec2> curve;
     for (int i = 0; i <= resolution; ++i)
     {
-        float t = (float)i / resolution;
+        float t = static_cast<float>(i) / resolution;
         curve.push_back(de_casteljau(p0, p1, p2, p3, t));
     }
     return curve;
 }
 
+// Particules réparties sur la courbe
+void spawn_particles_on_curve(
+    std::vector<glm::vec2>& out_particles,
+    glm::vec2 p0, glm::vec2 p1, glm::vec2 p2, glm::vec2 p3,
+    int count)
+{
+    for (int i = 0; i < count; ++i)
+    {
+        float t = static_cast<float>(std::rand()) / RAND_MAX;
+        glm::vec2 pt = de_casteljau(p0, p1, p2, p3, t);
+        out_particles.push_back(pt);
+    }
+}
+
 int main()
 {
-    gl::init("Casteljau Cubique");
+    gl::init("Particules sur Bézier Cubique (Fixe)");
     gl::maximize_window();
+    std::srand(static_cast<unsigned>(std::time(nullptr)));
+
+    std::vector<glm::vec2> particles;
+    std::vector<glm::vec2> curve = compute_bezier_curve(P0, P1, P2, P3, 100);
+    spawn_particles_on_curve(particles, P0, P1, P2, P3, 100);
 
     while (gl::window_is_open())
     {
         glClearColor(0.f, 0.f, 0.f, 1.f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        glm::vec2 P2 = get_mouse_ndc(); // point mobile
-
         // Courbe
-        auto curve = compute_bezier_curve(P0, P1, P2, P3, 100);
-        utils::draw_polyline(curve, false, 0.005f, {1, 1, 1, 1}); // blanche
+        utils::draw_polyline(curve, false, 0.005f, {1, 1, 1, 1});
 
-        // Points
+        // Points de contrôle
         utils::draw_disk(P0, 0.01f, {1, 0, 1, 1});
         utils::draw_disk(P1, 0.01f, {1, 0, 1, 1});
         utils::draw_disk(P2, 0.01f, {1, 0, 1, 1});
@@ -68,5 +79,11 @@ int main()
         utils::draw_line(P0, P1, 0.002f, {1, 1, 1, 0.2f});
         utils::draw_line(P1, P2, 0.002f, {1, 1, 1, 0.2f});
         utils::draw_line(P2, P3, 0.002f, {1, 1, 1, 0.2f});
+
+        // Particules
+        for (auto& pt : particles)
+        {
+            utils::draw_disk(pt, 0.005f, {1.f, 0.f, 0.f, 0.8f});
+        }
     }
 }
