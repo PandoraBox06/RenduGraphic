@@ -4,8 +4,7 @@
 
 namespace utils
 {
-
-    static auto &generator()
+    static auto& generator()
     {
         thread_local std::default_random_engine gen{std::random_device{}()};
         return gen;
@@ -23,10 +22,10 @@ namespace utils
                 gl::VertexBuffer_Descriptor{
                     .layout = {gl::VertexAttribute::Position2D(0), gl::VertexAttribute::UV(1)},
                     .data = {
-                        -1.f, -1.f, 0.f, 0.f, //
-                        +1.f, -1.f, 1.f, 0.f, //
-                        +1.f, +1.f, 1.f, 1.f, //
-                        -1.f, +1.f, 0.f, 1.f  //
+                        -1.f, -1.f, 0.f, 0.f,
+                        +1.f, -1.f, 1.f, 0.f,
+                        +1.f, +1.f, 1.f, 1.f,
+                        -1.f, +1.f, 0.f, 1.f
                     }}},
             .index_buffer = {0, 1, 2, 0, 2, 3},
         }};
@@ -51,7 +50,6 @@ out vec2 v_uv;
 void main()
 {
     vec2 position = u_position + u_radius * in_position;
-
     gl_Position = vec4(position * vec2(u_inverse_aspect_ratio, 1.), 0., 1.);
     v_uv = in_uv;
 }
@@ -60,7 +58,6 @@ void main()
 #version 410
 
 out vec4 out_color;
-
 in vec2 v_uv;
 uniform vec4 u_color;
 
@@ -75,7 +72,7 @@ void main()
             }};
     }
 
-    void draw_disk(glm::vec2 position, float radius, glm::vec4 const &color)
+    void draw_disk(glm::vec2 position, float radius, glm::vec4 const& color)
     {
         static auto square_mesh = make_square_mesh();
         static auto disk_shader = make_disk_shader();
@@ -107,11 +104,12 @@ const vec2 quadOffsets[4] = vec2[](
     vec2(-1.0,  1.0)
 );
 
-void main() {
+void main()
+{
     vec2 dir = normalize(u_end - u_start);
     vec2 normal = vec2(-dir.y, dir.x);
-
     vec2 middle = (u_start + u_end) * 0.5;
+
     vec2 pos = middle
              + quadOffsets[gl_VertexID].x * (u_end - u_start) * 0.5
              + quadOffsets[gl_VertexID].y * normal * u_thickness * 0.5;
@@ -133,10 +131,11 @@ void main()
             }};
     }
 
-    void draw_line(glm::vec2 start, glm::vec2 end, float thickness, glm::vec4 const &color)
+    void draw_line(glm::vec2 start, glm::vec2 end, float thickness, glm::vec4 const& color)
     {
         static auto line_mesh = make_square_mesh();
         static auto line_shader = make_line_shader();
+
         line_shader.bind();
         line_shader.set_uniform("u_start", start);
         line_shader.set_uniform("u_end", end);
@@ -146,4 +145,12 @@ void main()
         line_mesh.draw();
     }
 
+    void draw_polyline(std::vector<glm::vec2> const& points, bool closed, float thickness, glm::vec4 const& color)
+    {
+        for (size_t i = 0; i < points.size() - 1; ++i)
+            draw_line(points[i], points[i + 1], thickness, color);
+
+        if (closed && points.size() > 2)
+            draw_line(points.back(), points.front(), thickness, color);
+    }
 }
